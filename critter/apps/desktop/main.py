@@ -9,11 +9,12 @@ import logging
 import os
 import signal
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from critter.core.events import EventBus
 from critter.core.manager import PetManager
 from critter.core.registry import PetRegistry
+from critter.core.automation import AutomationEngine, load_rules_from_dir
 
 logger = logging.getLogger("critter")
 
@@ -48,8 +49,47 @@ def handle_list_pets(search_paths: List[str]) -> int:
     return 0
 
 
-def run_desktop_app(pet_ids: List[str], search_paths: List[str]) -> int:
-    """Bootstrap Wayland Layer Shell, initialize GTK, and launch desktop pets."""
+def handle_list_automations(search_paths: List[str]) -> int:
+    """Print discovered automation rules without initializing GTK."""
+    all_rules = []
+    for p in search_paths:
+        all_rules.extend(load_rules_from_dir(p))
+
+    if not all_rules:
+        print("No automation rules found in search paths:", search_paths)
+        return 0
+
+    print(f"\nDiscovered {len(all_rules)} Automation Rule(s):")
+    print("=" * 86)
+    print(f"{'ID':<22} {'NAME':<24} {'TRIGGER':<14} {'ACTIONS':<12} {'ENABLED'}")
+    print("-" * 86)
+
+    for r in all_rules:
+        trigger_str = f"{r.trigger.type}"
+        if r.trigger.type == "interval":
+            sec = r.trigger.params.get("interval_seconds", 0)
+            trigger_str += f" ({sec:.0f}s)"
+        elif r.trigger.type == "event":
+            trigger_str += f" ({r.trigger.params.get('event_name', '')})"
+
+        actions_str = f"{len(r.actions)} ({', '.join(a.type for a in r.actions)})"
+        enabled_str = "yes" if r.enabled else "no"
+        print(f"{r.id:<22} {r.name:<24} {trigger_str:<14} {actions_str:<12} {enabled_str}")
+        if r.description:
+            print(f"   └─ {r.description}")
+
+    print("=" * 86)
+    print("Configure with: critter --automations all (or --automations pomodoro_timer,hydration_reminder)\n")
+    return 0
+
+
+def run_desktop_app(
+    pet_ids: List[str],
+    search_paths: List[str],
+    automations_spec: str = "all",
+    automation_paths: Optional[List[str]] = None,
+) -> int:
+    """Bootstrap Wayland Layer Shell, initialize GTK, and launch desktop pets & automations."""
     from critter.apps.desktop.bootstrap import bootstrap_layer_shell, verify_layer_shell_supported
 
     # Bootstrap dynamic linker before any GTK imports
@@ -71,6 +111,28 @@ def run_desktop_app(pet_ids: List[str], search_paths: List[str]) -> int:
 
     event_bus = EventBus()
     manager = PetManager(registry=registry, event_bus=event_bus)
+
+    # Initialize Automation Engine
+    automation_paths = automation_paths or ["packages/automations"]
+    automation_engine = AutomationEngine(event_bus=event_bus)
+    all_rules = []
+    for a_path in automation_paths:
+        all_rules.extend(load_rules_from_dir(a_path))
+
+    # Configure enabled rules based on CLI spec
+    if automations_spec.lower() == "none":
+        for r in all_rules:
+            r.enabled = False
+    elif automations_spec.lower() != "all":
+        selected_ids = {s.strip() for s in automations_spec.split(",") if s.strip()}
+        for r in all_rules:
+            r.enabled = (r.id in selected_ids)
+
+    for r in all_rules:
+        automation_engine.register_rule(r)
+
+    # GLib 1-second timer to advance interval automations cheaply
+    GLib.timeout_add_seconds(1, lambda: (automation_engine.tick(1.0), True)[1])
 
     class CritterApplication(Gtk.Application):
         """GTK4 application orchestrating multiple Layer Shell pet windows."""
@@ -103,6 +165,7 @@ def run_desktop_app(pet_ids: List[str], search_paths: List[str]) -> int:
     # Clean signal handling for SIGINT (Ctrl+C) and SIGTERM
     def signal_handler(sig, frame):
         logger.info("Termination signal received. Exiting Critter...")
+        automation_engine.dispose()
         app.quit()
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -124,9 +187,19 @@ def main() -> int:
         help="List all discovered pet packages and exit (runs without GTK)",
     )
     parser.add_argument(
+        "--list-automations",
+        action="store_true",
+        help="List all discovered automation rules and exit (runs without GTK)",
+    )
+    parser.add_argument(
         "--pets",
         default="dog",
         help="Comma-separated pet IDs to spawn (default: dog). E.g. --pets dog,cat",
+    )
+    parser.add_argument(
+        "--automations",
+        default="all",
+        help="Automations to enable: 'all', 'none', or comma-separated rule IDs (default: all)",
     )
     parser.add_argument(
         "--dir",
@@ -134,6 +207,13 @@ def main() -> int:
         dest="custom_dirs",
         default=[],
         help="Additional custom directories to search for pet packages (repeatable)",
+    )
+    parser.add_argument(
+        "--automations-dir",
+        action="append",
+        dest="custom_automation_dirs",
+        default=[],
+        help="Additional custom directories to search for automation rules (repeatable)",
     )
     parser.add_argument(
         "--debug",
@@ -148,16 +228,25 @@ def main() -> int:
     )
 
     search_paths = ["packages/pets"] + args.custom_dirs
+    automation_paths = ["packages/automations"] + args.custom_automation_dirs
 
     if args.list_pets:
         return handle_list_pets(search_paths)
+
+    if args.list_automations:
+        return handle_list_automations(automation_paths)
 
     # Parse requested pet IDs
     pet_ids = [p.strip() for p in args.pets.split(",") if p.strip()]
     if not pet_ids:
         pet_ids = ["dog"]
 
-    return run_desktop_app(pet_ids=pet_ids, search_paths=search_paths)
+    return run_desktop_app(
+        pet_ids=pet_ids,
+        search_paths=search_paths,
+        automations_spec=args.automations,
+        automation_paths=automation_paths,
+    )
 
 
 if __name__ == "__main__":

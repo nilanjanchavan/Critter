@@ -1,0 +1,47 @@
+{
+  "id": "distraction_guard",
+  "name": "Social Media Focus Guard",
+  "description": "Alerts you when opening distracting social websites during focus hours.",
+  "enabled": true,
+  "cooldown_seconds": 120.0,
+  "trigger": {
+    "type": "event",
+    "params": {
+      "event_name": "ExternalWebEvent",
+      "filters": {
+        "action": "visit"
+      }
+    }
+  },
+  "conditions": [
+    {
+      "type": "url_match",
+      "params": {
+        "patterns": [
+          "*instagram.com*",
+          "*twitter.com*",
+          "*x.com*",
+          "*tiktok.com*",
+          "*facebook.com*"
+        ]
+      }
+    }
+  ],
+  "actions": [
+    {
+      "type": "notification",
+      "params": {
+        "title": "🐾 Critter Focus Warning",
+        "message": "Focus time is active! Avoid getting distracted on {domain}.",
+        "urgency": "critical"
+      }
+    },
+    {
+      "type": "pet_animation",
+      "params": {
+        "animation": "idle",
+        "duration_seconds": 6.0
+      }
+    }
+  ]
+}

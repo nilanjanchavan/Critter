@@ -11,6 +11,7 @@ from typing import Dict, List, Optional
 from critter.core.events import Event, EventBus
 from critter.core.pet import PetController, PetInstance, PetManifest
 from critter.core.registry import PetRegistry
+from critter.core.automation.events import PetAnimationRequested
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,22 @@ class PetManager:
         self.registry = registry or PetRegistry()
         self.event_bus = event_bus or EventBus()
         self._instances: Dict[str, PetInstance] = {}
+
+        if self.event_bus:
+            self.event_bus.subscribe(PetAnimationRequested, self._on_pet_animation_requested)
+
+    def _on_pet_animation_requested(self, event: PetAnimationRequested) -> None:
+        """Handle animation override requests from automation rules or external events."""
+        targets = []
+        if event.instance_id:
+            inst = self.get_instance(event.instance_id)
+            if inst:
+                targets.append(inst)
+        else:
+            targets = list(self._instances.values())
+
+        for inst in targets:
+            inst.controller.request_temporary_animation(event.animation, event.duration_seconds)
 
     def spawn(
         self,

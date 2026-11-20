@@ -1,0 +1,31 @@
+{
+  "id": "pomodoro_timer",
+  "name": "Pomodoro Work Timer",
+  "description": "Notifies you every 25 minutes to take a short break and triggers your pets to celebrate focus time.",
+  "enabled": true,
+  "cooldown_seconds": 10.0,
+  "trigger": {
+    "type": "interval",
+    "params": {
+      "interval_seconds": 1500.0
+    }
+  },
+  "conditions": [],
+  "actions": [
+    {
+      "type": "notification",
+      "params": {
+        "title": "🍅 Pomodoro Completed!",
+        "message": "Great job! Time to take a 5-minute break and stretch.",
+        "urgency": "normal"
+      }
+    },
+    {
+      "type": "pet_animation",
+      "params": {
+        "animation": "idle",
+        "duration_seconds": 5.0
+      }
+    }
+  ]
+}

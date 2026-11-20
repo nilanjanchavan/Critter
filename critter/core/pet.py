@@ -199,6 +199,15 @@ class PetController:
                     PetAnimationChanged(instance_id=self.instance_id, animation=animation_name)
                 )
 
+    def request_temporary_animation(self, animation: str, duration_seconds: Optional[float] = None) -> bool:
+        """Request a temporary animation override (e.g. from an automation event)."""
+        if animation not in self.manifest.animations:
+            return False
+        self.set_animation(animation)
+        if duration_seconds is not None and duration_seconds > 0:
+            self.state_time_remaining = duration_seconds
+        return True
+
     def set_state(self, new_state: BehaviorState) -> None:
         if self.state != new_state:
             self.state = new_state
