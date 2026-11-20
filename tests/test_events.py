@@ -82,3 +82,4 @@ def test_global_subscriber():
     bus.publish(PetMoved(pet_id="1", new_x=10, new_y=10))
 
     assert all_events == ["PetSpawned", "PetMoved"]
+

@@ -73,3 +73,4 @@ def verify_layer_shell_supported() -> bool:
     if not Gtk.is_initialized():
         Gtk.init()
     return bool(Gtk4LayerShell.is_supported())
+
