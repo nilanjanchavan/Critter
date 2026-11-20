@@ -177,3 +177,4 @@ async def test_close_tab_action_suppressed_on_missing_context(bus: EventBus) -> 
     # Context without tab_id or session_id must gracefully return False
     res = action.execute({}, event_bus=bus)
     assert res is False
+

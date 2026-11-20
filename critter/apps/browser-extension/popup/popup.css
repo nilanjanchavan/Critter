@@ -192,6 +192,34 @@ code {
 }
 .btn-secondary:hover { background-color: #475569; }
 
+.status-hint {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  border: 1px solid #334155;
+  background-color: #1e293b;
+}
+
+.status-hint.hint-error {
+  background-color: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+.status-hint.hint-success {
+  background-color: #064e3b;
+  border-color: #059669;
+  color: #6ee7b7;
+}
+
+.status-hint.hint-info {
+  background-color: #1e293b;
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
 .footer {
   margin-top: 4px;
 }
+

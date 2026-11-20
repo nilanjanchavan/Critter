@@ -130,6 +130,37 @@ def handle_list_origins() -> int:
     return 0
 
 
+def handle_run_bridge(port: int = 8765) -> int:
+    """Run standalone WebSocket bridge server without initializing GTK."""
+    import asyncio
+    auth_mgr = BridgeAuthManager()
+    event_bus = EventBus()
+    bridge_server = BridgeServer(auth_manager=auth_mgr, event_bus=event_bus, host="127.0.0.1", port=port)
+
+    print(f"\nStarting Critter WebSocket bridge on ws://127.0.0.1:{port}...")
+    print(f"Auth Token: {auth_mgr.token}")
+    paired = auth_mgr.list_paired_origins()
+    print(f"Paired Origins ({len(paired)}):")
+    if not paired:
+        print("  (None. Pair in another terminal with: critter --pair-origin <origin>)")
+    else:
+        for po in paired:
+            print(f"  • {po.origin} ({po.label})")
+
+    async def run():
+        await bridge_server.start_async()
+        print("\n[✓] Bridge server running. Ready for browser extension connections.")
+        print("Press Ctrl+C to stop.\n")
+        while bridge_server.is_running:
+            await asyncio.sleep(1.0)
+
+    try:
+        asyncio.run(run())
+    except KeyboardInterrupt:
+        print("\nStopping bridge server...")
+    return 0
+
+
 def run_desktop_app(
     pet_ids: List[str],
     search_paths: List[str],
@@ -268,6 +299,11 @@ def main() -> int:
         help="List all currently paired extension origins and exit",
     )
     parser.add_argument(
+        "--bridge",
+        action="store_true",
+        help="Run standalone WebSocket bridge server for browser extension testing and exit",
+    )
+    parser.add_argument(
         "--pets",
         default="dog",
         help="Comma-separated pet IDs to spawn (default: dog). E.g. --pets dog,cat",
@@ -324,6 +360,9 @@ def main() -> int:
 
     if args.list_origins:
         return handle_list_origins()
+
+    if args.bridge:
+        return handle_run_bridge()
 
     # Parse requested pet IDs
     pet_ids = [p.strip() for p in args.pets.split(",") if p.strip()]

@@ -331,3 +331,4 @@ class BridgeClient {
 // Instantiate and start client
 const client = new BridgeClient();
 client.init();
+
