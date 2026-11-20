@@ -32,3 +32,4 @@ def get_hyprland_cursor_pos() -> Optional[Tuple[float, float]]:
         return float(pos["x"]), float(pos["y"])
     except Exception:
         return None
+
