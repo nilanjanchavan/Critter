@@ -18,7 +18,7 @@ from websockets.datastructures import Headers
 from websockets.http11 import Request, Response
 
 from critter.core.events import EventBus
-from critter.core.automation.events import ExternalWebEvent
+from critter.core.automation.events import ExternalWebEvent, TabCloseRequested
 from critter.core.communication.auth import BridgeAuthManager, DEFAULT_AUTH_FILE
 from critter.core.communication.protocol import (
     AuthAckMessage,
@@ -105,6 +105,26 @@ class BridgeServer:
         self._sessions: Dict[str, BridgeSession] = {}
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._running = False
+
+        if self.event_bus:
+            self.event_bus.subscribe(TabCloseRequested, self._on_tab_close_requested)
+
+    def _on_tab_close_requested(self, event: TabCloseRequested) -> None:
+        """Handle TabCloseRequested from EventBus (thread-safe coroutine dispatch)."""
+        if not self._loop or not self.is_running:
+            return
+
+        async def do_close():
+            await self.request_close_tab(
+                session_id=event.session_id,
+                tab_id=event.tab_id,
+                expected_domain=event.expected_domain,
+                rule_id=event.rule_id,
+                reason=event.reason,
+                allow_incognito=event.allow_incognito,
+            )
+
+        asyncio.run_coroutine_threadsafe(do_close(), self._loop)
 
     @property
     def is_running(self) -> bool:
@@ -441,3 +461,4 @@ class BridgeServerThread:
             self._loop.call_soon_threadsafe(self._loop.stop)
             if self._thread and self._thread.is_alive():
                 self._thread.join(timeout=2.0)
+

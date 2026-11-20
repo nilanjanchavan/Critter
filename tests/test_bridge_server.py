@@ -282,3 +282,4 @@ async def test_incognito_tab_close_suppressed_by_default(
             allow_incognito=False,
         )
         assert res is False
+

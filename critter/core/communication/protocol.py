@@ -184,3 +184,4 @@ def parse_inbound_message(raw_text: str) -> InboundMessage:
 
     else:
         raise ProtocolError(f"Unrecognized message type '{msg_type}'")
+

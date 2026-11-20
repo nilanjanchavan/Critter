@@ -15,6 +15,7 @@ from critter.core.events import EventBus
 from critter.core.manager import PetManager
 from critter.core.registry import PetRegistry
 from critter.core.automation import AutomationEngine, load_rules_from_dir
+from critter.core.communication import BridgeAuthManager, BridgeServer, BridgeServerThread
 
 logger = logging.getLogger("critter")
 
@@ -83,6 +84,52 @@ def handle_list_automations(search_paths: List[str]) -> int:
     return 0
 
 
+def handle_bridge_token() -> int:
+    """Print the bridge authentication token for browser extension pairing."""
+    auth_mgr = BridgeAuthManager()
+    print(f"\nCritter Bridge Auth Token:\n{auth_mgr.token}\n")
+    print("Paste this token into the Critter Companion browser extension popup to authenticate.\n")
+    return 0
+
+
+def handle_pair_origin(origin: str, label: str = "Browser Extension") -> int:
+    """Explicitly pair an extension origin in the allowlist."""
+    auth_mgr = BridgeAuthManager()
+    try:
+        auth_mgr.add_paired_origin(origin, label=label)
+        print(f"\n[+] Successfully paired extension origin: {origin} ({label})\n")
+        return 0
+    except Exception as exc:
+        print(f"Error pairing origin: {exc}", file=sys.stderr)
+        return 1
+
+
+def handle_revoke_origin(origin: str) -> int:
+    """Revoke a previously paired extension origin."""
+    auth_mgr = BridgeAuthManager()
+    if auth_mgr.revoke_origin(origin):
+        print(f"\n[-] Successfully revoked extension origin: {origin}\n")
+        return 0
+    else:
+        print(f"Origin '{origin}' was not found in paired list.", file=sys.stderr)
+        return 1
+
+
+def handle_list_origins() -> int:
+    """List all explicitly paired extension origins."""
+    auth_mgr = BridgeAuthManager()
+    origins = auth_mgr.list_paired_origins()
+    print(f"\nPaired Extension Origins ({len(origins)}):")
+    print("=" * 76)
+    if not origins:
+        print("  (None paired yet. Use `critter --pair-origin <origin>` to pair an extension)")
+    else:
+        for po in origins:
+            print(f"  • {po.origin:<40} ({po.label}) [paired: {po.paired_at[:19]}]")
+    print("=" * 76 + "\n")
+    return 0
+
+
 def run_desktop_app(
     pet_ids: List[str],
     search_paths: List[str],
@@ -134,6 +181,14 @@ def run_desktop_app(
     # GLib 1-second timer to advance interval automations cheaply
     GLib.timeout_add_seconds(1, lambda: (automation_engine.tick(1.0), True)[1])
 
+    # Start WebSocket Bridge Server on background thread
+    bridge_server = BridgeServer(
+        event_bus=event_bus,
+        thread_dispatch=lambda fn: GLib.idle_add(lambda: (fn(), False)[1]),
+    )
+    bridge_thread = BridgeServerThread(bridge_server)
+    bridge_thread.start()
+
     class CritterApplication(Gtk.Application):
         """GTK4 application orchestrating multiple Layer Shell pet windows."""
 
@@ -165,6 +220,7 @@ def run_desktop_app(
     # Clean signal handling for SIGINT (Ctrl+C) and SIGTERM
     def signal_handler(sig, frame):
         logger.info("Termination signal received. Exiting Critter...")
+        bridge_thread.stop()
         automation_engine.dispose()
         app.quit()
 
@@ -190,6 +246,26 @@ def main() -> int:
         "--list-automations",
         action="store_true",
         help="List all discovered automation rules and exit (runs without GTK)",
+    )
+    parser.add_argument(
+        "--bridge-token",
+        action="store_true",
+        help="Display the bridge secret token for browser extension pairing and exit",
+    )
+    parser.add_argument(
+        "--pair-origin",
+        metavar="ORIGIN",
+        help="Pair an extension origin in the bridge allowlist (e.g. chrome-extension://<id>)",
+    )
+    parser.add_argument(
+        "--revoke-origin",
+        metavar="ORIGIN",
+        help="Revoke an extension origin from the bridge allowlist",
+    )
+    parser.add_argument(
+        "--list-origins",
+        action="store_true",
+        help="List all currently paired extension origins and exit",
     )
     parser.add_argument(
         "--pets",
@@ -230,11 +306,24 @@ def main() -> int:
     search_paths = ["packages/pets"] + args.custom_dirs
     automation_paths = ["packages/automations"] + args.custom_automation_dirs
 
+    # Non-GUI CLI actions
     if args.list_pets:
         return handle_list_pets(search_paths)
 
     if args.list_automations:
         return handle_list_automations(automation_paths)
+
+    if args.bridge_token:
+        return handle_bridge_token()
+
+    if args.pair_origin:
+        return handle_pair_origin(args.pair_origin)
+
+    if args.revoke_origin:
+        return handle_revoke_origin(args.revoke_origin)
+
+    if args.list_origins:
+        return handle_list_origins()
 
     # Parse requested pet IDs
     pet_ids = [p.strip() for p in args.pets.split(",") if p.strip()]

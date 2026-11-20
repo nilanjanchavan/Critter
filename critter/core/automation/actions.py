@@ -7,7 +7,11 @@ import subprocess
 import sys
 from typing import Any, Dict, Optional
 from critter.core.events import EventBus
-from critter.core.automation.events import NotificationRequested, PetAnimationRequested
+from critter.core.automation.events import (
+    NotificationRequested,
+    PetAnimationRequested,
+    TabCloseRequested,
+)
 from critter.core.automation.models import ActionDef, ActionType
 
 logger = logging.getLogger(__name__)
@@ -138,6 +142,43 @@ class CommandAction(BaseAction):
             return False
 
 
+class CloseTabAction(BaseAction):
+    """Requests closing an explicitly identified browser tab through the authenticated bridge."""
+
+    def __init__(self, definition: ActionDef) -> None:
+        super().__init__(definition)
+        self.reason: str = self.definition.params.get("reason", "Closed by Critter focus rule")
+        self.allow_incognito: bool = bool(self.definition.params.get("allow_incognito", False))
+
+    def execute(self, context: Dict[str, Any], event_bus: Optional[EventBus] = None) -> bool:
+        tab_id = context.get("tab_id")
+        session_id = context.get("session_id")
+        domain = context.get("domain", "")
+        rule_id = str(context.get("rule_id", ""))
+
+        if tab_id is None or not session_id:
+            logger.warning(
+                "CloseTabAction suppressed: context missing tab_id (%s) or session_id (%s)",
+                tab_id,
+                session_id,
+            )
+            return False
+
+        if event_bus:
+            event_bus.publish(
+                TabCloseRequested(
+                    session_id=str(session_id),
+                    tab_id=int(tab_id),
+                    expected_domain=str(domain),
+                    rule_id=rule_id,
+                    reason=self.reason,
+                    allow_incognito=self.allow_incognito,
+                )
+            )
+            return True
+        return False
+
+
 def create_action(definition: ActionDef) -> BaseAction:
     """Factory creating BaseAction instances."""
     act_type = definition.type.lower()
@@ -149,6 +190,8 @@ def create_action(definition: ActionDef) -> BaseAction:
         return SoundBellAction(definition)
     elif act_type == ActionType.COMMAND.value:
         return CommandAction(definition)
+    elif act_type == ActionType.CLOSE_TAB.value:
+        return CloseTabAction(definition)
     else:
         logger.warning("Unknown action type '%s'", definition.type)
         raise ValueError(f"Unknown action type: {definition.type}")

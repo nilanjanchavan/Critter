@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Critter Companion</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="card">
+    <header class="header">
+      <div class="brand">
+        <img src="../icons/icon-48.png" alt="Critter" class="logo">
+        <div>
+          <h1>Critter Companion</h1>
+          <p class="subtitle">Desktop Pet Automation Bridge</p>
+        </div>
+      </div>
+      <div id="status-badge" class="badge badge-disconnected">
+        <span class="status-dot"></span>
+        <span id="status-text">Disconnected</span>
+      </div>
+    </header>
+
+    <section class="section">
+      <label class="label">Your Extension Origin (for Pairing):</label>
+      <div class="origin-box">
+        <input type="text" id="extension-origin" readonly value="Loading...">
+        <button id="copy-origin-btn" title="Copy Origin" class="btn btn-secondary">Copy</button>
+      </div>
+      <p class="help-text">Pair in terminal: <code>critter --pair-origin &lt;origin&gt;</code></p>
+    </section>
+
+    <section class="section">
+      <div class="field-row">
+        <div class="field" style="flex: 2;">
+          <label for="bridge-host" class="label">Bridge Host</label>
+          <input type="text" id="bridge-host" value="127.0.0.1" spellcheck="false">
+        </div>
+        <div class="field" style="flex: 1;">
+          <label for="bridge-port" class="label">Port</label>
+          <input type="number" id="bridge-port" value="8765">
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="label-row">
+          <label for="auth-token" class="label">Bridge Auth Token</label>
+          <a href="#" id="toggle-token-visibility" class="link">Show</a>
+        </div>
+        <input type="password" id="auth-token" placeholder="Paste 64-char token here..." spellcheck="false">
+      </div>
+      <p class="help-text">Find token in <code>~/.config/critter/bridge_auth.json</code> or run <code>critter --bridge-token</code>.</p>
+    </section>
+
+    <footer class="footer">
+      <button id="save-btn" class="btn btn-primary">Save & Connect</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

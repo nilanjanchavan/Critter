@@ -16,8 +16,25 @@ from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIG_DIR = os.path.expanduser("~/.config/critter")
+DEFAULT_CONFIG_DIR = os.environ.get(
+    "CRITTER_CONFIG_DIR",
+    os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "critter"),
+)
 DEFAULT_AUTH_FILE = os.path.join(DEFAULT_CONFIG_DIR, "bridge_auth.json")
+
+
+def get_default_auth_file() -> str:
+    """Return effective auth file path, with safe workspace fallback if ~/.config is read-only."""
+    auth_file = os.environ.get("CRITTER_AUTH_FILE", DEFAULT_AUTH_FILE)
+    config_dir = os.path.dirname(auth_file)
+    try:
+        os.makedirs(config_dir, exist_ok=True)
+    except OSError:
+        # Fallback to local workspace config if user directory is read-only (e.g. sandbox)
+        fallback_dir = os.path.abspath(".critter_config")
+        os.makedirs(fallback_dir, exist_ok=True)
+        return os.path.join(fallback_dir, "bridge_auth.json")
+    return auth_file
 
 
 @dataclass
@@ -31,8 +48,8 @@ class PairedOrigin:
 class BridgeAuthManager:
     """Manages bridge authentication tokens and explicit extension origin allowlisting."""
 
-    def __init__(self, auth_file: str = DEFAULT_AUTH_FILE) -> None:
-        self.auth_file = auth_file
+    def __init__(self, auth_file: Optional[str] = None) -> None:
+        self.auth_file = auth_file or get_default_auth_file()
         self._auth_token: str = ""
         self._paired_origins: Dict[str, PairedOrigin] = {}
         self._load_or_initialize()
@@ -125,3 +142,4 @@ class BridgeAuthManager:
         self._auth_token = secrets.token_hex(32)
         self.save()
         return self._auth_token
+

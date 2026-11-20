@@ -63,3 +63,14 @@ class ExternalWebEvent(Event):
     incognito: bool = False
     session_id: Optional[str] = None
 
+
+@dataclass(kw_only=True)
+class TabCloseRequested(Event):
+    """Event requesting a specific browser tab to be closed via the bridge."""
+    session_id: str
+    tab_id: int
+    expected_domain: str
+    rule_id: str = ""
+    reason: str = ""
+    allow_incognito: bool = False
+

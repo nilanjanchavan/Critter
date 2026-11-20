@@ -88,3 +88,4 @@ def test_community_package_file_rejection() -> None:
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
