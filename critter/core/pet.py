@@ -250,3 +250,4 @@ class PetController:
                 new_x = self.x + (dx / dist) * step
                 new_y = self.y + (dy / dist) * step
                 self.set_position(new_x, new_y)
+

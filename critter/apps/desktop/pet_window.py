@@ -5,7 +5,7 @@ Features:
 - Alpha channel transparency (no background borders or boxes).
 - Layer Shell OVERLAY layer (sits above normal windows, zero exclusive zone).
 - Non-focusable (KeyboardMode.NONE) to avoid stealing focus.
-- Smooth mouse drag & drop repositioning with Gtk.GestureDrag.
+- Silky-smooth Hyprland IPC cursor-tracking drag and drop.
 - Real-time frame animations and autonomous roaming.
 """
 
@@ -13,6 +13,7 @@ import logging
 import os
 from typing import Dict, Optional
 from critter.apps.desktop.bootstrap import bootstrap_layer_shell
+from critter.apps.desktop.cursor import get_hyprland_cursor_pos
 
 # Ensure layer shell preloads before importing GTK
 bootstrap_layer_shell()
@@ -39,6 +40,8 @@ class PetWindow(Gtk.ApplicationWindow):
         self._textures: Dict[str, Gdk.Texture] = {}
         self._load_textures()
 
+        self._grab_offset_x = 64.0
+        self._grab_offset_y = 64.0
         self._drag_start_x = 0.0
         self._drag_start_y = 0.0
 
@@ -127,22 +130,43 @@ class PetWindow(Gtk.ApplicationWindow):
         self.add_controller(drag)
 
     def _on_drag_begin(self, gesture: Gtk.GestureDrag, start_x: float, start_y: float) -> None:
-        self._drag_start_x = self.controller.x
-        self._drag_start_y = self.controller.y
         self.controller.start_drag()
         self._update_display_frame()
 
+        cur = get_hyprland_cursor_pos()
+        if cur:
+            self._grab_offset_x = cur[0] - self.controller.x
+            self._grab_offset_y = cur[1] - self.controller.y
+        else:
+            self._grab_offset_x = start_x
+            self._grab_offset_y = start_y
+            self._drag_start_x = self.controller.x
+            self._drag_start_y = self.controller.y
+
+        # Run 60 FPS (16ms) smooth drag updater while dragging
+        GLib.timeout_add(16, self._on_drag_tick)
+
+    def _on_drag_tick(self) -> bool:
+        if self.controller.state != BehaviorState.DRAGGING:
+            return False  # Discontinue timer when drag ends
+
+        cur = get_hyprland_cursor_pos()
+        if cur:
+            new_x = cur[0] - self._grab_offset_x
+            new_y = cur[1] - self._grab_offset_y
+            self.controller.set_position(new_x, new_y)
+            self._apply_position_margins()
+        return True
+
     def _on_drag_update(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
-        new_x = self._drag_start_x + offset_x
-        new_y = self._drag_start_y + offset_y
-        self.controller.set_position(new_x, new_y)
-        self._apply_position_margins()
+        # Fallback if Hyprland socket is unavailable
+        if not get_hyprland_cursor_pos():
+            new_x = self._drag_start_x + offset_x
+            new_y = self._drag_start_y + offset_y
+            self.controller.set_position(new_x, new_y)
+            self._apply_position_margins()
 
     def _on_drag_end(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
-        new_x = self._drag_start_x + offset_x
-        new_y = self._drag_start_y + offset_y
-        self.controller.set_position(new_x, new_y)
-        self._apply_position_margins()
         self.controller.end_drag()
         self._update_display_frame()
 

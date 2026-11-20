@@ -90,3 +90,4 @@ def test_animation_frame_tick(dog_manifest):
     initial_idx = controller.frame_index
     controller.tick_animation()
     assert controller.frame_index == (initial_idx + 1) % len(dog_manifest.animations["idle"].frames)
+
