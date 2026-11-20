@@ -161,6 +161,90 @@ def handle_run_bridge(port: int = 8765) -> int:
     return 0
 
 
+def handle_package_cli(args_list: List[str]) -> int:
+    """Handle 'critter package' subcommands (validate, export, install) without GTK."""
+    parser = argparse.ArgumentParser(
+        prog="critter package",
+        description="Critter Pet Package Management (validate, export, install)",
+    )
+    subparsers = parser.add_subparsers(dest="subcommand", required=True)
+
+    # Validate
+    val_p = subparsers.add_parser("validate", help="Validate a pet package directory or archive")
+    val_p.add_argument("path", help="Path to package directory, .tar.gz, or .zip")
+
+    # Export
+    exp_p = subparsers.add_parser("export", help="Export a pet package to a clean distributable archive")
+    exp_p.add_argument("package_id", help="ID of package in registry or path to package directory")
+    exp_p.add_argument("--output", "-o", help="Custom destination path for archive")
+    exp_p.add_argument("--format", "-f", default="tar.gz", choices=["tar.gz", "zip"], help="Archive format (default: tar.gz)")
+
+    # Install
+    inst_p = subparsers.add_parser("install", help="Safely validate and install a pet package")
+    inst_p.add_argument("archive", help="Path to .tar.gz or .zip package archive")
+    inst_p.add_argument("--dest", "-d", help="Custom destination directory for installed package")
+    inst_p.add_argument("--force", action="store_true", help="Replace existing community package if already installed")
+
+    args = parser.parse_args(args_list)
+
+    from critter.core.packaging import (
+        validate_package,
+        export_package,
+        install_package,
+    )
+
+    if args.subcommand == "validate":
+        try:
+            res = validate_package(args.path)
+            print(f"\n[✓] Package Validation Succeeded:")
+            print("=" * 60)
+            print(f"  Package ID:   {res.package_id}")
+            print(f"  Name:         {res.name}")
+            print(f"  Species:      {res.species}")
+            print(f"  Version:      v{res.version}")
+            print(f"  Dimensions:   {res.width}x{res.height} px")
+            print(f"  Animations:   {res.animation_count} ({res.frame_count} total frames)")
+            print(f"  Total Size:   {res.total_size_bytes:,} bytes ({res.file_count} files)")
+            print("=" * 60 + "\n")
+            return 0
+        except Exception as exc:
+            print(f"\n[✗] Validation Failed: {exc}\n", file=sys.stderr)
+            return 1
+
+    elif args.subcommand == "export":
+        try:
+            archive_path, sha256 = export_package(
+                args.package_id,
+                output_path=args.output,
+                archive_format=args.format,
+            )
+            print(f"\n[✓] Successfully Exported Pet Package:")
+            print("=" * 70)
+            print(f"  Archive:   {archive_path}")
+            print(f"  SHA-256:   {sha256}")
+            print(f"  Checksum:  {archive_path}.sha256")
+            print("=" * 70 + "\n")
+            return 0
+        except Exception as exc:
+            print(f"\n[✗] Export Failed: {exc}\n", file=sys.stderr)
+            return 1
+
+    elif args.subcommand == "install":
+        try:
+            dest = install_package(args.archive, target_base_dir=getattr(args, "dest", None), force=args.force)
+            print(f"\n[✓] Successfully Installed Pet Package:")
+            print("=" * 70)
+            print(f"  Installed Location: {dest}")
+            print(f"  Available in:       critter --list-pets")
+            print("=" * 70 + "\n")
+            return 0
+        except Exception as exc:
+            print(f"\n[✗] Installation Failed: {exc}\n", file=sys.stderr)
+            return 1
+
+    return 0
+
+
 def run_desktop_app(
     pet_ids: List[str],
     search_paths: List[str],
@@ -265,6 +349,10 @@ def run_desktop_app(
 
 
 def main() -> int:
+    # Package management subcommands (pure Python CLI without GTK)
+    if len(sys.argv) > 1 and sys.argv[1] == "package":
+        return handle_package_cli(sys.argv[2:])
+
     parser = argparse.ArgumentParser(
         description="Critter — Customizable Desktop Pet Automation for Linux (Hyprland / Wayland)"
     )

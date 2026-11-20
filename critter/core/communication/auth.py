@@ -103,10 +103,12 @@ class BridgeAuthManager:
         """Check if origin is in the explicit allowlist. None/blank is never allowed."""
         if not origin:
             return False
+        self._load_or_initialize()
         return origin.strip().lower() in self._paired_origins
 
     def add_paired_origin(self, origin: str, label: str = "Browser Extension") -> None:
         """Explicitly pair an extension origin (e.g. chrome-extension://<id>)."""
+        self._load_or_initialize()
         clean_origin = origin.strip().lower()
         if not (clean_origin.startswith("chrome-extension://") or clean_origin.startswith("moz-extension://")):
             # Allow test origins only if explicitly labeled
@@ -119,6 +121,7 @@ class BridgeAuthManager:
 
     def revoke_origin(self, origin: str) -> bool:
         """Revoke a previously paired extension origin."""
+        self._load_or_initialize()
         clean_origin = origin.strip().lower()
         if clean_origin in self._paired_origins:
             del self._paired_origins[clean_origin]
@@ -129,11 +132,15 @@ class BridgeAuthManager:
 
     def list_paired_origins(self) -> List[PairedOrigin]:
         """Return all paired extension origins."""
+        self._load_or_initialize()
         return list(self._paired_origins.values())
 
     def verify_token(self, token: str) -> bool:
         """Constant-time token verification to prevent timing attacks."""
-        if not token or not self._auth_token:
+        if not token:
+            return False
+        self._load_or_initialize()
+        if not self._auth_token:
             return False
         return hmac.compare_digest(self._auth_token, token.strip())
 

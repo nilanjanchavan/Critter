@@ -31,11 +31,17 @@ class DuplicatePackageError(RegistryError):
     """Raised when two pet packages share the same package ID."""
 
 
+DEFAULT_SEARCH_PATHS = [
+    "packages/pets",
+    os.environ.get("CRITTER_USER_PETS_DIR", os.path.expanduser("~/.local/share/critter/packages/pets")),
+]
+
+
 class PetRegistry:
     """Discovers and validates pet packages."""
 
     def __init__(self, search_paths: Optional[List[str]] = None) -> None:
-        self.search_paths: List[str] = search_paths or ["packages/pets"]
+        self.search_paths: List[str] = list(search_paths) if search_paths is not None else list(DEFAULT_SEARCH_PATHS)
         self._packages: Dict[str, PetManifest] = {}
 
     def register_search_path(self, path: str) -> None:

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Critter
+GenericName=Desktop Pet Companion
+Comment=Customizable Desktop Pet Automation for Wayland (Hyprland)
+Exec=critter --pets dog,cat
+Icon=org.critter.Critter
+Terminal=false
+Type=Application
+Categories=Utility;Amusement;
+Keywords=pet;companion;hyprland;wayland;layer-shell;automation;
+StartupNotify=true
+StartupWMClass=org.critter.CritterDesktop

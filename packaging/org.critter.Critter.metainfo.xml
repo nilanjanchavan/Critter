@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.critter.Critter</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Critter</name>
+  <summary>Customizable desktop pet automation for Linux (Hyprland / Wayland)</summary>
+  <description>
+    <p>
+      Critter is an extensible desktop pet and automation platform designed specifically
+      for modern Wayland compositors using GTK4 and Wayland Layer Shell.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Multiple simultaneous animated companions (Corgi, Mochi the Cat)</li>
+      <li>Wayland Layer Shell rendering on top of windows</li>
+      <li>Event-driven automation engine with triggers and actions</li>
+      <li>Local WebSocket bridge and companion browser extension for focus guarding and tab management</li>
+      <li>Package management for validating, exporting, and installing community pet packages</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.critter.Critter.desktop</launchable>
+  <provides>
+    <binary>critter</binary>
+  </provides>
+  <url type="homepage">https://github.com/nilanjanchavan/Critter</url>
+  <url type="bugtracker">https://github.com/nilanjanchavan/Critter/issues</url>
+  <developer id="org.critter">
+    <name>The Critter Development Team</name>
+  </developer>
+  <releases>
+    <release version="0.1.0" date="2026-11-20">
+      <description>
+        <p>Initial release featuring multi-pet engine, Layer Shell support, automation engine, browser companion bridge, and community packaging.</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>
