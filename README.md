@@ -107,3 +107,4 @@ Critter maintains a rigorous unit test suite covering core physics, coordinate c
 - [ ] **Phase 5**: WebExtension browser integration (tab tracking, website activity monitors).
 - [ ] **Phase 6**: Community pet importing & package distribution.
 - [ ] **Phase 7**: Settings UI & Fedora RPM/Flatpak packaging.
+

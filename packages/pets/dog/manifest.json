@@ -6,8 +6,8 @@
   "author": "Critter Team",
   "description": "A cheerful, loyal Corgi companion that roams your Linux desktop.",
   "size": {
-    "width": 128,
-    "height": 128
+    "width": 160,
+    "height": 135
   },
   "default_animation": "idle",
   "animations": {

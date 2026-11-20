@@ -16,8 +16,8 @@ def test_manifest_loading(dog_manifest):
     assert dog_manifest.id == "dog"
     assert dog_manifest.name == "Corgi"
     assert dog_manifest.species == "dog"
-    assert dog_manifest.width == 128
-    assert dog_manifest.height == 128
+    assert dog_manifest.width == 160
+    assert dog_manifest.height == 135
     assert "idle" in dog_manifest.animations
     assert "walk_right" in dog_manifest.animations
     assert "walk_left" in dog_manifest.animations
@@ -45,8 +45,8 @@ def test_pet_controller_bounds(dog_manifest):
 
     # Move outside right/bottom
     controller.set_position(3000, 2000)
-    assert controller.x == 1920 - 128
-    assert controller.y == 1080 - 128
+    assert controller.x == 1920 - 160
+    assert controller.y == 1080 - 135
 
 
 def test_pet_dragging_state(dog_manifest):
