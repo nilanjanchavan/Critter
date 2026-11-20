@@ -1,0 +1,19 @@
+[project]
+name = "critter"
+version = "0.1.0"
+description = "Customizable Desktop Pet Automation for Linux (Hyprland / Wayland)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Critter Team" }
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
