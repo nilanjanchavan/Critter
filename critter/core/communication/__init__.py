@@ -1,12 +1,18 @@
 """WebSocket communication bridge for Critter browser extensions."""
 
 from critter.core.communication.auth import BridgeAuthManager, PairedOrigin
-from critter.core.communication.bridge_server import (
-    BridgeServer,
-    BridgeServerThread,
-    BridgeSession,
-    TabState,
-)
+try:
+    from critter.core.communication.bridge_server import (
+        BridgeServer,
+        BridgeServerThread,
+        BridgeSession,
+        TabState,
+    )
+except ImportError:
+    BridgeServer = None  # type: ignore
+    BridgeServerThread = None  # type: ignore
+    BridgeSession = None  # type: ignore
+    TabState = None  # type: ignore
 from critter.core.communication.protocol import (
     AuthAckMessage,
     AuthErrMessage,

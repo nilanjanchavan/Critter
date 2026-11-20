@@ -132,6 +132,9 @@ def handle_list_origins() -> int:
 
 def handle_run_bridge(port: int = 8765) -> int:
     """Run standalone WebSocket bridge server without initializing GTK."""
+    if BridgeServer is None:
+        print("Error: 'websockets' package is required to run the bridge server.", file=sys.stderr)
+        return 1
     import asyncio
     auth_mgr = BridgeAuthManager()
     event_bus = EventBus()
@@ -296,13 +299,17 @@ def run_desktop_app(
     # GLib 1-second timer to advance interval automations cheaply
     GLib.timeout_add_seconds(1, lambda: (automation_engine.tick(1.0), True)[1])
 
-    # Start WebSocket Bridge Server on background thread
-    bridge_server = BridgeServer(
-        event_bus=event_bus,
-        thread_dispatch=lambda fn: GLib.idle_add(lambda: (fn(), False)[1]),
-    )
-    bridge_thread = BridgeServerThread(bridge_server)
-    bridge_thread.start()
+    # Start WebSocket Bridge Server on background thread if websockets is available
+    bridge_thread: Optional[BridgeServerThread] = None
+    if BridgeServer is not None and BridgeServerThread is not None:
+        bridge_server = BridgeServer(
+            event_bus=event_bus,
+            thread_dispatch=lambda fn: GLib.idle_add(lambda: (fn(), False)[1]),
+        )
+        bridge_thread = BridgeServerThread(bridge_server)
+        bridge_thread.start()
+    else:
+        logger.warning("'websockets' is not installed; running desktop app without browser bridge")
 
     class CritterApplication(Gtk.Application):
         """GTK4 application orchestrating multiple Layer Shell pet windows."""
@@ -335,7 +342,8 @@ def run_desktop_app(
     # Clean signal handling for SIGINT (Ctrl+C) and SIGTERM
     def signal_handler(sig, frame):
         logger.info("Termination signal received. Exiting Critter...")
-        bridge_thread.stop()
+        if bridge_thread is not None:
+            bridge_thread.stop()
         automation_engine.dispose()
         app.quit()
 

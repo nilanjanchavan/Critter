@@ -248,3 +248,4 @@ def validate_package(path_or_archive: str) -> PackageValidationResult:
             effective_dir = temp_dir
 
         return validate_package_directory(effective_dir)
+

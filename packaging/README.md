@@ -43,3 +43,4 @@ systemctl --user stop critter.service
 # Disable automatic startup on login
 systemctl --user disable critter.service
 ```
+

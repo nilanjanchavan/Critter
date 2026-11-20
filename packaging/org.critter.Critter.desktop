@@ -10,3 +10,4 @@ Categories=Utility;Amusement;
 Keywords=pet;companion;hyprland;wayland;layer-shell;automation;
 StartupNotify=true
 StartupWMClass=org.critter.CritterDesktop
+

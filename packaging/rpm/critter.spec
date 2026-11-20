@@ -76,3 +76,4 @@ appstream-util validate-relax --nonet %{buildroot}%{_metainfodir}/org.critter.Cr
 %changelog
 * Wed Nov 20 2026 Critter Maintainers <maintainers@critter.local> - 0.1.0-1
 - Initial Fedora RPM package release for Critter.
+

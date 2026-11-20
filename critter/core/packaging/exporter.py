@@ -71,22 +71,31 @@ def export_package(
         manifest_data = json.load(f)
 
     # 2. Collect only explicit, verified files to include
+    seen_arc_paths: Set[str] = set()
     files_to_bundle: List[Tuple[str, str]] = []  # (abs_path, arc_rel_path)
-    files_to_bundle.append((manifest_path, posixpath.join(pkg_id, "manifest.json")))
+
+    manifest_arc = posixpath.join(pkg_id, "manifest.json")
+    files_to_bundle.append((manifest_path, manifest_arc))
+    seen_arc_paths.add(manifest_arc)
 
     for anim_name, anim_spec in manifest_data.get("animations", {}).items():
         for frame_rel in anim_spec.get("frames", []):
             norm_rel = os.path.normpath(frame_rel.replace("\\", "/"))
             frame_abs = os.path.abspath(os.path.join(pkg_dir, norm_rel))
             arc_rel = posixpath.join(pkg_id, norm_rel.replace(os.sep, "/"))
-            files_to_bundle.append((frame_abs, arc_rel))
+            if arc_rel not in seen_arc_paths:
+                files_to_bundle.append((frame_abs, arc_rel))
+                seen_arc_paths.add(arc_rel)
 
     # Add optional documentation if present
     for fname in os.listdir(pkg_dir):
         if fname.lower() in OPTIONAL_METADATA_FILES:
             fpath = os.path.join(pkg_dir, fname)
             if os.path.isfile(fpath):
-                files_to_bundle.append((fpath, posixpath.join(pkg_id, fname)))
+                arc_rel = posixpath.join(pkg_id, fname)
+                if arc_rel not in seen_arc_paths:
+                    files_to_bundle.append((fpath, arc_rel))
+                    seen_arc_paths.add(arc_rel)
 
     # Determine output path
     clean_fmt = archive_format.lower().lstrip(".")
@@ -130,3 +139,4 @@ def export_package(
 
     logger.info("Exported package '%s' (v%s) to %s (SHA-256: %s)", pkg_id, version, final_archive_path, sha256_hash)
     return final_archive_path, sha256_hash
+
