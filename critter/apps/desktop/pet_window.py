@@ -7,6 +7,7 @@ Features:
 - Non-focusable (KeyboardMode.NONE) to avoid stealing focus.
 - Silky-smooth Hyprland IPC cursor-tracking drag and drop.
 - Real-time frame animations and autonomous roaming.
+- Independent multi-instance support with unique Wayland surface namespaces.
 """
 
 import logging
@@ -19,29 +20,74 @@ from critter.apps.desktop.cursor import get_hyprland_cursor_pos
 bootstrap_layer_shell()
 
 from gi.repository import Gtk, Gdk, Gtk4LayerShell, GLib
-from critter.core.pet import BehaviorState, PetController, PetManifest
+from critter.core.pet import BehaviorState, PetController, PetInstance, PetManifest
 
 logger = logging.getLogger(__name__)
 
+_CSS_INITIALIZED = False
+
+
+def ensure_css_provider_installed() -> None:
+    """Ensure the transparent CSS provider is registered once globally."""
+    global _CSS_INITIALIZED
+    if _CSS_INITIALIZED:
+        return
+
+    css_provider = Gtk.CssProvider()
+    css_data = b"""
+    window.critter-pet-window {
+        background-color: transparent;
+        background: none;
+        border: none;
+        box-shadow: none;
+        outline: none;
+        padding: 0;
+        margin: 0;
+    }
+    """
+    css_provider.load_from_data(css_data)
+    display = Gdk.Display.get_default()
+    if display:
+        Gtk.StyleContext.add_provider_for_display(
+            display,
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
+        _CSS_INITIALIZED = True
+
 
 class PetWindow(Gtk.ApplicationWindow):
-    """Transparent GTK4 Layer Shell window hosting a single cartoon pet."""
+    """Transparent GTK4 Layer Shell window hosting an individual cartoon pet instance."""
 
-    def __init__(self, application: Gtk.Application, manifest: PetManifest) -> None:
+    def __init__(
+        self,
+        application: Gtk.Application,
+        instance: Optional[PetInstance] = None,
+        manifest: Optional[PetManifest] = None,
+    ) -> None:
         super().__init__(application=application)
 
-        self.manifest = manifest
-        self.controller = PetController(
-            manifest=manifest,
-            initial_x=200.0,
-            initial_y=250.0,
-        )
+        if instance is not None:
+            self.instance = instance
+            self.manifest = instance.manifest
+            self.controller = instance.controller
+        elif manifest is not None:
+            self.manifest = manifest
+            self.controller = PetController(manifest=manifest)
+            self.instance = PetInstance(
+                instance_id=manifest.id,
+                manifest=manifest,
+                controller=self.controller,
+                custom_name=manifest.name,
+            )
+        else:
+            raise ValueError("Must provide either an instance or manifest to PetWindow.")
 
         self._textures: Dict[str, Gdk.Texture] = {}
         self._load_textures()
 
-        self._grab_offset_x = 64.0
-        self._grab_offset_y = 64.0
+        self._grab_offset_x = float(self.manifest.width // 2)
+        self._grab_offset_y = float(self.manifest.height // 2)
         self._drag_start_x = 0.0
         self._drag_start_y = 0.0
 
@@ -63,36 +109,16 @@ class PetWindow(Gtk.ApplicationWindow):
                         logger.error("Sprite frame missing: %s", frame_path)
 
     def _setup_window_properties(self) -> None:
-        self.set_title(f"Critter - {self.manifest.name}")
+        self.set_title(f"Critter - {self.instance.custom_name}")
         self.set_default_size(self.manifest.width, self.manifest.height)
         self.add_css_class("critter-pet-window")
-
-        # Apply CSS for full background alpha transparency
-        css_provider = Gtk.CssProvider()
-        css_data = b"""
-        window.critter-pet-window {
-            background-color: transparent;
-            background: none;
-            border: none;
-            box-shadow: none;
-            outline: none;
-            padding: 0;
-            margin: 0;
-        }
-        """
-        css_provider.load_from_data(css_data)
-        display = Gdk.Display.get_default()
-        if display:
-            Gtk.StyleContext.add_provider_for_display(
-                display,
-                css_provider,
-                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
-            )
+        ensure_css_provider_installed()
 
     def _setup_layer_shell(self) -> None:
         """Configure GTK4 Layer Shell for Wayland / Hyprland."""
         Gtk4LayerShell.init_for_window(self)
-        Gtk4LayerShell.set_namespace(self, "critter-pet")
+        namespace = f"critter-pet-{self.instance.instance_id}"
+        Gtk4LayerShell.set_namespace(self, namespace)
         Gtk4LayerShell.set_layer(self, Gtk4LayerShell.Layer.OVERLAY)
         Gtk4LayerShell.set_exclusive_zone(self, 0)
         Gtk4LayerShell.set_keyboard_mode(self, Gtk4LayerShell.KeyboardMode.NONE)
@@ -122,7 +148,7 @@ class PetWindow(Gtk.ApplicationWindow):
         self._update_display_frame()
 
     def _setup_gestures(self) -> None:
-        """Drag gesture to grab and reposition the pet with mouse pointer."""
+        """Drag gesture to grab and reposition this specific pet instance."""
         drag = Gtk.GestureDrag.new()
         drag.connect("drag-begin", self._on_drag_begin)
         drag.connect("drag-update", self._on_drag_update)
@@ -159,7 +185,6 @@ class PetWindow(Gtk.ApplicationWindow):
         return True
 
     def _on_drag_update(self, gesture: Gtk.GestureDrag, offset_x: float, offset_y: float) -> None:
-        # Fallback if Hyprland socket is unavailable
         if not get_hyprland_cursor_pos():
             new_x = self._drag_start_x + offset_x
             new_y = self._drag_start_y + offset_y
@@ -172,24 +197,34 @@ class PetWindow(Gtk.ApplicationWindow):
 
     def _setup_tickers(self) -> None:
         """Start animation frame ticker and autonomous physics ticker."""
-        # 1. Animation frame ticker (every 160ms ~ 6 FPS)
         GLib.timeout_add(160, self._on_animation_tick)
-        # 2. Movement / roaming ticker (every 50ms = 20 FPS)
         GLib.timeout_add(50, self._on_movement_tick)
 
     def _on_animation_tick(self) -> bool:
-        self.controller.tick_animation()
-        self._update_display_frame()
-        return True  # Keep GLib timer active
+        if not self.controller.is_paused and self.instance.is_visible:
+            self.controller.tick_animation()
+            self._update_display_frame()
+        return True
 
     def _on_movement_tick(self) -> bool:
-        if self.controller.state != BehaviorState.DRAGGING:
-            self.controller.tick_movement(0.05)
-            self._apply_position_margins()
-        return True  # Keep GLib timer active
+        if not self.controller.is_paused and self.instance.is_visible:
+            if self.controller.state != BehaviorState.DRAGGING:
+                self.controller.tick_movement(0.05)
+                self._apply_position_margins()
+        return True
 
     def _update_display_frame(self) -> None:
         frame_path = self.controller.get_current_frame_path()
         texture = self._textures.get(frame_path)
         if texture:
             self.picture.set_paintable(texture)
+
+    def pause(self) -> None:
+        self.controller.pause()
+
+    def resume(self) -> None:
+        self.controller.resume()
+
+    def set_pet_visible(self, visible: bool) -> None:
+        self.instance.is_visible = visible
+        self.set_visible(visible)

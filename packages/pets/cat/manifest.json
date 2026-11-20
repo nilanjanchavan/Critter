@@ -1,0 +1,68 @@
+{
+  "id": "cat",
+  "name": "Mochi",
+  "species": "cat",
+  "version": "1.0.0",
+  "author": "Critter Team",
+  "description": "A playful, sleepy calico cat that takes naps and roams your desktop.",
+  "size": {
+    "width": 128,
+    "height": 128
+  },
+  "default_animation": "idle",
+  "animations": {
+    "idle": {
+      "fps": 4,
+      "loop": true,
+      "frames": [
+        "assets/idle_1.png",
+        "assets/idle_2.png",
+        "assets/idle_3.png",
+        "assets/idle_4.png"
+      ]
+    },
+    "walk_left": {
+      "fps": 5,
+      "loop": true,
+      "frames": [
+        "assets/walk_left_1.png",
+        "assets/walk_left_2.png",
+        "assets/walk_left_3.png",
+        "assets/walk_left_4.png"
+      ]
+    },
+    "walk_right": {
+      "fps": 5,
+      "loop": true,
+      "frames": [
+        "assets/walk_1.png",
+        "assets/walk_2.png",
+        "assets/walk_3.png",
+        "assets/walk_4.png"
+      ]
+    },
+    "sleep": {
+      "fps": 2,
+      "loop": true,
+      "frames": [
+        "assets/sleep_1.png",
+        "assets/sleep_2.png",
+        "assets/sleep_3.png"
+      ]
+    },
+    "drag": {
+      "fps": 1,
+      "loop": true,
+      "frames": [
+        "assets/drag.png"
+      ]
+    }
+  },
+  "movement": {
+    "speed": 55.0,
+    "idle_min_seconds": 3.0,
+    "idle_max_seconds": 8.0,
+    "walk_min_seconds": 2.0,
+    "walk_max_seconds": 4.5
+  }
+}

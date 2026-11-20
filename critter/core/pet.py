@@ -15,6 +15,7 @@ from critter.core.events import Event, EventBus
 class BehaviorState(Enum):
     IDLE = auto()
     WALKING = auto()
+    SLEEPING = auto()
     DRAGGING = auto()
 
 
@@ -32,6 +33,9 @@ class MovementConfig:
     idle_max_seconds: float = 6.0
     walk_min_seconds: float = 2.0
     walk_max_seconds: float = 5.0
+    sleep_chance: float = 0.20
+    sleep_min_seconds: float = 4.0
+    sleep_max_seconds: float = 10.0
 
 
 @dataclass(kw_only=True)
@@ -77,6 +81,9 @@ class PetManifest:
             idle_max_seconds=float(mv_data.get("idle_max_seconds", 6.0)),
             walk_min_seconds=float(mv_data.get("walk_min_seconds", 2.0)),
             walk_max_seconds=float(mv_data.get("walk_max_seconds", 5.0)),
+            sleep_chance=float(mv_data.get("sleep_chance", 0.20)),
+            sleep_min_seconds=float(mv_data.get("sleep_min_seconds", 4.0)),
+            sleep_max_seconds=float(mv_data.get("sleep_max_seconds", 10.0)),
         )
 
         return cls(
@@ -97,29 +104,41 @@ class PetManifest:
 
 @dataclass(kw_only=True)
 class PetMoved(Event):
-    pet_id: str
+    instance_id: str
     x: float
     y: float
 
 
 @dataclass(kw_only=True)
 class PetAnimationChanged(Event):
-    pet_id: str
+    instance_id: str
     animation: str
 
 
 @dataclass(kw_only=True)
 class PetStateChanged(Event):
-    pet_id: str
+    instance_id: str
     state: BehaviorState
 
 
+@dataclass(kw_only=True)
+class PetPaused(Event):
+    instance_id: str
+
+
+@dataclass(kw_only=True)
+class PetResumed(Event):
+    instance_id: str
+
+
 class PetController:
-    """Manages pet coordinate physics, autonomous roaming, and animation states."""
+    """Manages individual pet coordinate physics, autonomous roaming, and animation states."""
 
     def __init__(
         self,
         manifest: PetManifest,
+        instance_id: Optional[str] = None,
+        custom_name: Optional[str] = None,
         screen_width: int = 1920,
         screen_height: int = 1080,
         initial_x: float = 300.0,
@@ -127,6 +146,8 @@ class PetController:
         event_bus: Optional[EventBus] = None,
     ) -> None:
         self.manifest = manifest
+        self.instance_id = instance_id or manifest.id
+        self.custom_name = custom_name or manifest.name
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.x = initial_x
@@ -136,7 +157,8 @@ class PetController:
         self.state = BehaviorState.IDLE
         self.current_animation = manifest.default_animation
         self.frame_index = 0
-        self.facing_left = False
+        self.facing_left = True
+        self.is_paused = False
 
         self.target_x = initial_x
         self.target_y = initial_y
@@ -145,6 +167,18 @@ class PetController:
             manifest.movement.idle_max_seconds,
         )
 
+    def pause(self) -> None:
+        """Pause autonomous movement and animation progression."""
+        self.is_paused = True
+        if self.event_bus:
+            self.event_bus.publish(PetPaused(instance_id=self.instance_id))
+
+    def resume(self) -> None:
+        """Resume autonomous movement and animation."""
+        self.is_paused = False
+        if self.event_bus:
+            self.event_bus.publish(PetResumed(instance_id=self.instance_id))
+
     def set_position(self, x: float, y: float) -> None:
         """Clamp and set position within screen boundaries."""
         max_x = max(0, self.screen_width - self.manifest.width)
@@ -152,7 +186,7 @@ class PetController:
         self.x = max(0.0, min(float(x), float(max_x)))
         self.y = max(0.0, min(float(y), float(max_y)))
         if self.event_bus:
-            self.event_bus.publish(PetMoved(pet_id=self.manifest.id, x=self.x, y=self.y))
+            self.event_bus.publish(PetMoved(instance_id=self.instance_id, x=self.x, y=self.y))
 
     def set_animation(self, animation_name: str) -> None:
         if animation_name not in self.manifest.animations:
@@ -162,7 +196,7 @@ class PetController:
             self.frame_index = 0
             if self.event_bus:
                 self.event_bus.publish(
-                    PetAnimationChanged(pet_id=self.manifest.id, animation=animation_name)
+                    PetAnimationChanged(instance_id=self.instance_id, animation=animation_name)
                 )
 
     def set_state(self, new_state: BehaviorState) -> None:
@@ -170,7 +204,7 @@ class PetController:
             self.state = new_state
             if self.event_bus:
                 self.event_bus.publish(
-                    PetStateChanged(pet_id=self.manifest.id, state=new_state)
+                    PetStateChanged(instance_id=self.instance_id, state=new_state)
                 )
 
     def start_drag(self) -> None:
@@ -187,6 +221,9 @@ class PetController:
 
     def tick_animation(self) -> None:
         """Advance animation by one frame."""
+        if self.is_paused:
+            return
+
         anim = self.manifest.animations.get(self.current_animation)
         if not anim or not anim.frames:
             return
@@ -205,29 +242,49 @@ class PetController:
 
     def tick_movement(self, delta_time: float) -> None:
         """Update autonomous movement and state transitions."""
-        if self.state == BehaviorState.DRAGGING:
+        if self.is_paused or self.state == BehaviorState.DRAGGING:
             return
 
         self.state_time_remaining -= delta_time
 
-        if self.state == BehaviorState.IDLE:
+        if self.state == BehaviorState.SLEEPING:
             if self.state_time_remaining <= 0:
-                # Transition from idle to walking
-                self.set_state(BehaviorState.WALKING)
+                # Wake up from sleep
+                self.set_state(BehaviorState.IDLE)
+                self.set_animation("idle")
                 self.state_time_remaining = random.uniform(
-                    self.manifest.movement.walk_min_seconds,
-                    self.manifest.movement.walk_max_seconds,
+                    self.manifest.movement.idle_min_seconds,
+                    self.manifest.movement.idle_max_seconds,
                 )
-                # Pick a destination within screen bounds
-                margin = 80
-                max_x = max(margin, self.screen_width - self.manifest.width - margin)
-                max_y = max(margin, self.screen_height - self.manifest.height - margin)
-                self.target_x = random.uniform(margin, max_x)
-                self.target_y = random.uniform(margin, max_y)
 
-                # Determine direction facing
-                self.facing_left = (self.target_x < self.x)
-                self.set_animation("walk_left" if self.facing_left else "walk_right")
+        elif self.state == BehaviorState.IDLE:
+            if self.state_time_remaining <= 0:
+                # Check if pet has a sleep animation and decides to take a nap
+                has_sleep = "sleep" in self.manifest.animations
+                if has_sleep and random.random() < self.manifest.movement.sleep_chance:
+                    self.set_state(BehaviorState.SLEEPING)
+                    self.set_animation("sleep")
+                    self.state_time_remaining = random.uniform(
+                        self.manifest.movement.sleep_min_seconds,
+                        self.manifest.movement.sleep_max_seconds,
+                    )
+                else:
+                    # Transition from idle to walking
+                    self.set_state(BehaviorState.WALKING)
+                    self.state_time_remaining = random.uniform(
+                        self.manifest.movement.walk_min_seconds,
+                        self.manifest.movement.walk_max_seconds,
+                    )
+                    # Pick a destination within screen bounds
+                    margin = 80
+                    max_x = max(margin, self.screen_width - self.manifest.width - margin)
+                    max_y = max(margin, self.screen_height - self.manifest.height - margin)
+                    self.target_x = random.uniform(margin, max_x)
+                    self.target_y = random.uniform(margin, max_y)
+
+                    # Determine direction facing (if moving left, face left)
+                    self.facing_left = (self.target_x < self.x)
+                    self.set_animation("walk_left" if self.facing_left else "walk_right")
 
         elif self.state == BehaviorState.WALKING:
             dx = self.target_x - self.x
@@ -251,3 +308,12 @@ class PetController:
                 new_y = self.y + (dy / dist) * step
                 self.set_position(new_x, new_y)
 
+
+@dataclass
+class PetInstance:
+    """Represents an active desktop pet instance."""
+    instance_id: str
+    manifest: PetManifest
+    controller: PetController
+    custom_name: str
+    is_visible: bool = True
