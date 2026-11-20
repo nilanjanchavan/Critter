@@ -249,3 +249,4 @@ class AutomationEngine:
             self._unsubscribe_bus()
             self._unsubscribe_bus = None
         self._rules.clear()
+

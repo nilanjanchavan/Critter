@@ -59,3 +59,7 @@ class ExternalWebEvent(Event):
     title: str = ""
     domain: str = ""
     action: str = "visit"  # visit, active_tab, closed
+    tab_id: Optional[int] = None
+    incognito: bool = False
+    session_id: Optional[str] = None
+

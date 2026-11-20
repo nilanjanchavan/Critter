@@ -134,3 +134,4 @@ def create_condition(definition: ConditionDef) -> BaseCondition:
     else:
         logger.warning("Unknown condition type '%s'", definition.type)
         raise ValueError(f"Unknown condition type: {definition.type}")
+

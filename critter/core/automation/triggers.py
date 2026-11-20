@@ -94,3 +94,4 @@ def create_trigger(definition: TriggerDef) -> BaseTrigger:
     else:
         logger.warning("Unknown trigger type '%s'; defaulting to ManualTrigger", definition.type)
         return ManualTrigger(definition)
+

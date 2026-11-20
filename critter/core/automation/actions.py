@@ -152,3 +152,4 @@ def create_action(definition: ActionDef) -> BaseAction:
     else:
         logger.warning("Unknown action type '%s'", definition.type)
         raise ValueError(f"Unknown action type: {definition.type}")
+

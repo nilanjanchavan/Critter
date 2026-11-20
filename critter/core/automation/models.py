@@ -25,6 +25,13 @@ class ActionType(str, Enum):
     PET_ANIMATION = "pet_animation"
     COMMAND = "command"
     SOUND_BELL = "sound_bell"
+    CLOSE_TAB = "close_tab"
+
+
+class AutomationSource(str, Enum):
+    BUILTIN = "builtin"
+    COMMUNITY = "community"
+    USER_LOCAL = "user_local"
 
 
 @dataclass(kw_only=True)
@@ -59,6 +66,7 @@ class AutomationRule:
     conditions: List[ConditionDef] = field(default_factory=list)
     actions: List[ActionDef] = field(default_factory=list)
     cooldown_seconds: float = 0.0
+    source: AutomationSource = AutomationSource.COMMUNITY
     last_triggered_at: Optional[datetime] = None
     trigger_count: int = 0
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -69,3 +77,4 @@ class AutomationRule:
             return False
         elapsed = (current_time - self.last_triggered_at).total_seconds()
         return elapsed < self.cooldown_seconds
+

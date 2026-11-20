@@ -43,3 +43,4 @@ __all__ = [
     "load_rules_from_file",
     "parse_rule_from_dict",
 ]
+

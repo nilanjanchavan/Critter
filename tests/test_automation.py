@@ -217,3 +217,4 @@ def test_load_automations_from_packages() -> None:
     pomodoro = next(r for r in rules if r.id == "pomodoro_timer")
     assert pomodoro.trigger.type == "interval"
     assert len(pomodoro.actions) == 2
+

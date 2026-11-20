@@ -29,3 +29,4 @@ def test_cli_list_automations_no_gtk() -> None:
     assert "pomodoro_timer" in result.stdout
     assert "hydration_reminder" in result.stdout
     assert "distraction_guard" in result.stdout
+
