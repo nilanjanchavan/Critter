@@ -163,3 +163,4 @@ def generate_cat_frames():
 
 if __name__ == "__main__":
     generate_cat_frames()
+

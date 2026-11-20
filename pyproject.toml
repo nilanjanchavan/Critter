@@ -9,6 +9,9 @@ authors = [
 ]
 dependencies = []
 
+[project.scripts]
+critter = "critter.apps.desktop.main:main"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0"
@@ -17,4 +20,5 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
 
