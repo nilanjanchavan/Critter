@@ -82,3 +82,4 @@ def test_hide_and_show(manager):
 
     manager.show_instance(cat.instance_id)
     assert cat.is_visible is True
+

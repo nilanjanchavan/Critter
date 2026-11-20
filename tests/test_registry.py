@@ -147,3 +147,4 @@ def test_registry_rejects_invalid_semver(tmp_path):
 
     with pytest.raises(ManifestValidationError, match="Invalid semantic version"):
         PetRegistry.load_and_validate_package(str(pkg_dir))
+

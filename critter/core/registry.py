@@ -212,3 +212,4 @@ class PetRegistry:
             movement=movement,
             package_dir=resolved_pkg_dir,
         )
+
